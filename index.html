@@ -70,7 +70,6 @@ canvas{width:100%;height:190px;border:1px solid var(--border);border-radius:3px;
 .stickySave{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:2px solid var(--rust);padding:8px 12px calc(8px + env(safe-area-inset-bottom));z-index:30}
 .stickySave button{width:100%;margin:0}
 .empty{text-align:center;padding:20px;color:var(--textDim)}
-.installTip{display:flex;gap:8px;align-items:center;justify-content:space-between}
 .unitToggle{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:6px 0 2px}
 .restTime{font-family:var(--fontDisplay);font-size:32px;font-weight:700;letter-spacing:1px;color:var(--rust)}
 .exNum{color:var(--rust)}
@@ -94,11 +93,6 @@ canvas{width:100%;height:190px;border:1px solid var(--border);border-radius:3px;
     <button type="button" id="restStartBtnMini" class="successBtn" onclick="toggleRestTimer()">Start</button>
   </div>
 </header>
-
-<div id="installTip" class="info installTip hidden">
-  <span id="installTipText" style="flex:1"></span>
-  <button class="secondary" style="margin:0;padding:6px 10px;min-height:auto" onclick="dismissInstallTip()">✕</button>
-</div>
 
 <div class="tabs">
   <button id="tabWorkout" class="tab active" onclick="showTab('workout')">Workout</button>
@@ -287,7 +281,7 @@ function render(){
     const typeClass=e.type.toLowerCase();
     const isCarry=e.type==='Carry';
     const c=document.createElement('div'); c.className='card exCard '+typeClass;
-    const startCount=Math.min(MAX_SETS, Math.max(1, previous?.sets?.length || 1));
+    const startCount=1;
     const prevWeightDisplay=previous?(kgToDisplay(previous.weight)||'-'):null;
     const prevText=previous
       ? isCarry
@@ -312,12 +306,6 @@ function render(){
     for(let s=1;s<=startCount;s++){
       const w=document.getElementById(`w_${i}_${s}`);
       w.value=kgToDisplay(previous?.weight ?? '');
-      const ps=previous?.sets?.[s-1];
-      if(isCarry){
-        if(ps) document.getElementById(`t_${i}_${s}`).value=ps.time||'';
-      } else {
-        if(ps){document.getElementById(`r_${i}_${s}`).value=ps.reps||'';document.getElementById(`rir_${i}_${s}`).value=ps.rir||'';}
-      }
       attachSetListeners(i,s,e,isCarry);
     }
     updateAddSetBtn(i);
@@ -800,26 +788,7 @@ function resetWorkoutTimer(){
   updateWorkoutDisplay();
 }
 
-function isStandalone(){
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-function dismissInstallTip(){
-  localStorage.setItem('hyperLogInstallTipDismissed','1');
-  document.getElementById('installTip').classList.add('hidden');
-}
-function initInstallTip(){
-  if(isStandalone()) return;
-  if(localStorage.getItem('hyperLogInstallTipDismissed')==='1') return;
-  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
-  const text=isIOS
-    ? 'Tip: tap Share, then "Add to Home Screen" to install this as an app.'
-    : 'Tip: open the browser menu and tap "Add to Home Screen" / "Install app" to use this like an app.';
-  document.getElementById('installTipText').textContent=text;
-  document.getElementById('installTip').classList.remove('hidden');
-}
-
 render();
-initInstallTip();
 updateUnitButtons();
 updateRestDisplay();
 updateRestStartBtn();
