@@ -267,17 +267,31 @@ function latestFor(day, beforeDate){
   return getAll().filter(x=>x.day===day && (!beforeDate || x.date<beforeDate))
     .sort((a,b)=>b.date.localeCompare(a.date))[0] || null;
 }
-function entryForPrevious(exercise, prev){
-  return prev?.entries?.find(x=>x.exercise===exercise) || null;
+// Some exercises (Biceps, Triceps, Calf Press, Farmer Carry...) appear on more than
+// one day. Their "previous" data should be the most recent time THAT EXERCISE was
+// logged, on ANY day — not just the most recent instance of the current day.
+// "Biceps"/"Triceps" are generic labels for different actual movements on each
+// upper day, so — unlike Calf Press, Farmer Carry, etc. — they should NOT share
+// history across days; keep their lookup scoped to the same day only.
+const DAY_SCOPED_EXERCISES=["Biceps","Triceps"];
+function latestEntryForExercise(exercise, beforeDate, day){
+  const dayScoped=DAY_SCOPED_EXERCISES.includes(exercise);
+  const sessions=getAll()
+    .filter(x=>(!beforeDate || x.date<beforeDate) && (!dayScoped || x.day===day))
+    .sort((a,b)=>b.date.localeCompare(a.date));
+  for(const s of sessions){
+    const entry=s.entries.find(e=>e.exercise===exercise && (e.weight || e.sets.some(st=>st.reps||st.time)));
+    if(entry) return entry;
+  }
+  return null;
 }
 
 function render(){
   stopAllCarryStopwatches();
   setCounts={};
   const list=document.getElementById('exerciseList'); list.innerHTML='';
-  const prev=latestFor(daySel.value,dateEl.value);
   allExercisesForDay(daySel.value).forEach((e,i)=>{
-    const previous=entryForPrevious(e.exercise,prev);
+    const previous=latestEntryForExercise(e.exercise,dateEl.value,daySel.value);
     const typeClass=e.type.toLowerCase();
     const isCarry=e.type==='Carry';
     const c=document.createElement('div'); c.className='card exCard '+typeClass;
