@@ -42,6 +42,7 @@ button{border:0;border-radius:4px;padding:11px 13px;margin:3px;background:var(--
 button:active{background:var(--rustDark)}
 button.secondary{background:transparent;color:var(--text);border:1px solid var(--borderStrong)}
 button.danger{background:var(--blood);color:#1A1A1C}
+button.carryRunning{background:#FFB300;color:#1A1A1C}
 button.successBtn{background:var(--olive);color:#1A1A1C}
 button.full{width:100%;margin:5px 0}
 input,select{width:100%;padding:11px;border:1px solid var(--border);border-radius:3px;margin:5px 0 8px;font-size:16px;background:var(--surface2);color:var(--text)}
@@ -163,6 +164,7 @@ canvas{width:100%;height:190px;border:1px solid var(--border);border-radius:3px;
     <h3>Exercise progress</h3>
     <select id="progressExercise" onchange="drawProgress()"></select>
     <canvas id="chart" width="700" height="380"></canvas>
+    <div id="chartDetail" class="small muted" style="margin-top:8px">Tap a point on the chart for exact numbers.</div>
   </div>
 </section>
 
@@ -192,6 +194,7 @@ Object.keys(program).forEach(d=>{
   const o=document.createElement('option'); o.value=d; o.textContent=d; daySel.appendChild(o);
 });
 daySel.addEventListener('change',render);
+document.getElementById('chart').addEventListener('click',handleChartTap);
 dateEl.addEventListener('change',render);
 
 function getAll(){
@@ -405,12 +408,12 @@ function toggleCarryStopwatch(i,s){
     clearInterval(carryStopwatches[key].interval);
     delete carryStopwatches[key];
     if(timeInput) timeInput.value=elapsed;
-    if(btn){btn.textContent='Start Carry Timer';btn.classList.remove('danger');btn.classList.add('successBtn');}
+    if(btn){btn.textContent='Start Carry Timer';btn.classList.remove('carryRunning');btn.classList.add('successBtn');}
     const ex=allExercisesForDay(daySel.value)[i];
     if(ex) checkCarry(i,ex);
   } else {
     const startedAt=Date.now();
-    if(btn){btn.textContent='Stop (0:00)';btn.classList.remove('successBtn');btn.classList.add('danger');}
+    if(btn){btn.textContent='Stop (0:00)';btn.classList.remove('successBtn');btn.classList.add('carryRunning');}
     const interval=setInterval(()=>{
       const liveBtn=document.getElementById(`carryBtn_${i}_${s}`);
       if(!liveBtn){clearInterval(interval);delete carryStopwatches[key];return;}
@@ -603,6 +606,22 @@ function renderProgress(){
   drawProgress();
 }
 
+let lastChart=null;
+
+// Replicates check()'s "did every set hit the top of the rep range at clean RIR"
+// logic against STORED sets, so historical sessions can be flagged on the chart
+// without needing to persist a separate "earned" field.
+function computeEarned(sets,maxRep){
+  let requiredTop=true, clean=true, any=false;
+  sets.forEach(s=>{
+    const r=Number(s.reps);
+    if(r) any=true;
+    if(!r || r<maxRep) requiredTop=false;
+    if(s.rir!==''&&s.rir!==undefined&&Number(s.rir)<0.5) clean=false;
+  });
+  return any && requiredTop && clean;
+}
+
 function drawProgress(){
   const canvas=document.getElementById('chart'),ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -617,13 +636,17 @@ function drawProgress(){
     const time=e.sets.reduce((n,s)=>n+(Number(s.time)||0),0);
     const secondary=isCarry?time:avgReps;
     const w=e.weight?Number(kgToDisplay(e.weight))||0:0;
-    if(secondary||w)points.push({date:x.date,weight:w,secondary});
+    const earned=!isCarry && computeEarned(e.sets,exDef?.maxRep??999);
+    if(secondary||w)points.push({date:x.date,weight:w,secondary,earned,sets:e.sets});
   });
   ctx.fillStyle='#EDEAE2';
   if(!points.length){
-    ctx.font='18px Arial';ctx.textAlign='center';ctx.fillText('No data for this exercise yet.',canvas.width/2,canvas.height/2);return;
+    ctx.font='18px Arial';ctx.textAlign='center';ctx.fillText('No data for this exercise yet.',canvas.width/2,canvas.height/2);
+    lastChart=null;
+    document.getElementById('chartDetail').textContent='Tap a point on the chart for exact numbers.';
+    return;
   }
-  const pad=48,W=canvas.width-pad*2,H=canvas.height-pad*2;
+  const pad=54,W=canvas.width-pad*2,H=canvas.height-pad*2;
   const wVals=points.map(p=>p.weight), wMin=Math.min(...wVals), wMax=Math.max(...wVals);
   const wRange=(wMax-wMin)||1;
   // Secondary axis is anchored to the exercise's target (rep range, or 0-60s for a timed carry),
@@ -636,6 +659,20 @@ function drawProgress(){
   const yAtWeight=v=>pad+H-(v-wMin)/wRange*H;
   const yAtSecondary=v=>pad+H-(v-sMin)/sRange*H;
 
+  // Faint horizontal gridlines for general readability
+  ctx.strokeStyle='rgba(156,156,150,0.15)'; ctx.lineWidth=1; ctx.setLineDash([]);
+  for(let g=1;g<4;g++){
+    const y=pad+H*(g/4);
+    ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(canvas.width-pad,y); ctx.stroke();
+  }
+
+  // Target rep-range band (non-carry only) — the programmed zone, drawn behind the lines
+  if(!isCarry && exDef){
+    const bandTop=yAtSecondary(exDef.maxRep), bandBottom=yAtSecondary(exDef.minRep);
+    ctx.fillStyle='rgba(92,128,152,0.14)';
+    ctx.fillRect(pad,bandTop,W,bandBottom-bandTop);
+  }
+
   // Weight line (solid, rust)
   ctx.strokeStyle='#C1502E'; ctx.lineWidth=2; ctx.setLineDash([]);
   ctx.beginPath();
@@ -643,6 +680,14 @@ function drawProgress(){
   ctx.stroke();
   ctx.fillStyle='#C1502E';
   points.forEach((p,i)=>{const x=xAt(i),y=yAtWeight(p.weight); ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();});
+
+  // Progression markers — a gold ring around any session that earned "load increase"
+  ctx.strokeStyle='#F2B705'; ctx.lineWidth=2;
+  points.forEach((p,i)=>{
+    if(!p.earned) return;
+    const x=xAt(i),y=yAtWeight(p.weight);
+    ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.stroke();
+  });
 
   // Secondary line — avg reps/set scaled to the rep range, or time (capped at 1 min) for Farmer Carry
   ctx.strokeStyle='#5C8098'; ctx.lineWidth=2; ctx.setLineDash([5,3]);
@@ -655,26 +700,63 @@ function drawProgress(){
 
   // Legend
   ctx.font='12px Arial'; ctx.textAlign='left';
-  ctx.fillStyle='#C1502E'; ctx.fillText(`● ${name} — weight (${unit})`,pad,14);
-  ctx.fillStyle='#5C8098'; ctx.fillText(`● ${isCarry?'Time (sec)':'Avg reps/set'}`,pad,28);
+  ctx.fillStyle='#C1502E'; ctx.fillText(`● ${name} — weight (${unit})`,pad,13);
+  ctx.fillStyle='#5C8098'; ctx.fillText(`● ${isCarry?'Time (sec)':'Avg reps/set'}`,pad,26);
+  if(!isCarry){
+    ctx.fillStyle='#F2B705'; ctx.fillText('○ Load increase earned',pad,39);
+  }
 
   // Weight axis (right)
   ctx.fillStyle='#9C9C96';
   ctx.textAlign='right';
   ctx.fillText(`${Math.round(wMax*10)/10} ${unit}`,canvas.width-pad,pad);
   ctx.fillText(`${Math.round(wMin*10)/10} ${unit}`,canvas.width-pad,canvas.height-pad+5);
-  // Secondary axis (left) — reps or seconds, no unit suffix needed for reps
+  // Secondary axis (left) — reps or seconds
   ctx.fillStyle='#5C8098';
   ctx.textAlign='left';
   const sMaxLabel=isCarry?`${Math.round(sMax)}s`:`${Math.round(sMax*10)/10}`;
   const sMinLabel=isCarry?`${Math.round(sMin)}s`:`${Math.round(sMin*10)/10}`;
   ctx.fillText(sMaxLabel,pad,pad);
   ctx.fillText(sMinLabel,pad,canvas.height-pad+5);
-  // Dates
-  ctx.fillStyle='#9C9C96';
-  ctx.textAlign='left';
-  ctx.fillText(points[0].date,pad,canvas.height-10);
-  ctx.textAlign='right';ctx.fillText(points[points.length-1].date,canvas.width-pad,canvas.height-10);
+
+  // Date labels — first/last always, plus one or two evenly-spaced ones in between
+  ctx.fillStyle='#9C9C96'; ctx.font='11px Arial';
+  const dateIdxs=new Set([0,points.length-1]);
+  if(points.length>=6){ dateIdxs.add(Math.round((points.length-1)/3)); dateIdxs.add(Math.round((points.length-1)*2/3)); }
+  else if(points.length>=3){ dateIdxs.add(Math.round((points.length-1)/2)); }
+  [...dateIdxs].sort((a,b)=>a-b).forEach(idx=>{
+    const x=xAt(idx);
+    ctx.textAlign = idx===0 ? 'left' : idx===points.length-1 ? 'right' : 'center';
+    ctx.fillText(points[idx].date,x,canvas.height-10);
+  });
+
+  lastChart={points,xAt,isCarry};
+  showChartDetail(points.length-1);
+}
+
+function showChartDetail(idx){
+  if(!lastChart || idx<0 || idx>=lastChart.points.length) return;
+  const p=lastChart.points[idx];
+  const box=document.getElementById('chartDetail'); if(!box) return;
+  const detail=lastChart.isCarry
+    ? p.sets.map((s,j)=>`Set ${j+1}: ${s.time||'-'}s`).join(' • ')
+    : p.sets.map((s,j)=>`Set ${j+1}: ${s.reps||'-'}×${s.rir!==''&&s.rir!==undefined?s.rir:'?'}`).join(' • ');
+  const wLabel=p.weight?`${Math.round(p.weight*10)/10} ${unit}`:'—';
+  box.innerHTML=`<b>${esc(p.date)}</b> — ${wLabel}${p.earned?' <span style="color:#F2B705">✓ load increase earned</span>':''}<br>${esc(detail)}`;
+}
+
+function handleChartTap(evt){
+  if(!lastChart) return;
+  const canvas=document.getElementById('chart');
+  const rect=canvas.getBoundingClientRect();
+  const clientX=evt.touches&&evt.touches.length?evt.touches[0].clientX:evt.clientX;
+  const tapX=(clientX-rect.left)*(canvas.width/rect.width);
+  let nearest=0, nearestDist=Infinity;
+  lastChart.points.forEach((p,i)=>{
+    const d=Math.abs(lastChart.xAt(i)-tapX);
+    if(d<nearestDist){nearestDist=d;nearest=i;}
+  });
+  showChartDetail(nearest);
 }
 
 let restDuration=Number(localStorage.getItem('hyperLogRestDuration'))||90;
