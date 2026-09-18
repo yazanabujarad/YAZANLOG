@@ -455,19 +455,23 @@ function buildSessionData(){
     const n=setCounts[i]||1;
     const ent={exercise:e.exercise,weight:'',sets:[]};
     let weights=[];
+    let hasData=false;
     for(let s=1;s<=n;s++){
       const wDisplay=document.getElementById(`w_${i}_${s}`)?.value || '';
       const wKg=displayToKg(wDisplay);
-      if(wKg) weights.push(Number(wKg));
+      if(wKg){ weights.push(Number(wKg)); hasData=true; }
       if(isCarry){
-        ent.sets.push({time:document.getElementById(`t_${i}_${s}`)?.value || ''});
+        const t=document.getElementById(`t_${i}_${s}`)?.value || '';
+        if(t) hasData=true;
+        ent.sets.push({time:t});
       } else {
-        ent.sets.push({
-          reps:document.getElementById(`r_${i}_${s}`)?.value || '',
-          rir:document.getElementById(`rir_${i}_${s}`)?.value || ''
-        });
+        const r=document.getElementById(`r_${i}_${s}`)?.value || '';
+        const rir=document.getElementById(`rir_${i}_${s}`)?.value || '';
+        if(r||rir) hasData=true;
+        ent.sets.push({reps:r,rir:rir});
       }
     }
+    if(!hasData) return; // nothing entered for this exercise — don't count it in this session
     ent.weight=weights.length?String(weights[0]):'';
     data.entries.push(ent);
   });
@@ -512,8 +516,9 @@ function loadExisting(){
   const existing=getAll().find(x=>x.date===dateEl.value && x.day===daySel.value);
   if(!existing) return;
   const all=allExercisesForDay(daySel.value);
-  existing.entries.forEach((e,i)=>{
-    const prog=all[i]; if(!prog) return;
+  all.forEach((prog,i)=>{
+    const e=existing.entries.find(en=>en.exercise===prog.exercise);
+    if(!e) return; // nothing was logged for this exercise that day — leave it as rendered
     const isCarry=prog.type==='Carry';
     const neededSets=Math.min(MAX_SETS,Math.max(1,e.sets.length||1));
     while((setCounts[i]||1)<neededSets){
@@ -952,6 +957,25 @@ function migrateBicepsTricepsSplit(){
   if(changed) setAll(all);
 }
 migrateBicepsTricepsSplit();
+
+// One-time cleanup: older saves included an entry for every program exercise even
+// when nothing was logged for it (e.g. a day you skipped Farmer Carry). Strip those
+// empty placeholders so "N exercises logged" reflects what was actually done.
+function migrateStripEmptyEntries(){
+  const all=getAll();
+  let changed=false;
+  all.forEach(session=>{
+    const before=(session.entries||[]).length;
+    session.entries=(session.entries||[]).filter(entry=>{
+      const hasWeight=!!entry.weight;
+      const hasSetData=(entry.sets||[]).some(s=>s.reps||s.rir||s.time);
+      return hasWeight||hasSetData;
+    });
+    if(session.entries.length!==before) changed=true;
+  });
+  if(changed) setAll(all);
+}
+migrateStripEmptyEntries();
 
 render();
 updateUnitButtons();
