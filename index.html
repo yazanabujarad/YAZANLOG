@@ -146,6 +146,7 @@ canvas{width:100%;height:190px;border:1px solid var(--border);border-radius:3px;
 </section>
 
 <section id="historyTab" class="hidden">
+  <button type="button" class="secondary" onclick="showTab('workout')">← Back to Workout</button>
   <div class="card">
     <div class="row">
       <h2>Workout History</h2>
@@ -156,6 +157,7 @@ canvas{width:100%;height:190px;border:1px solid var(--border);border-radius:3px;
 </section>
 
 <section id="progressTab" class="hidden">
+  <button type="button" class="secondary" onclick="showTab('workout')">← Back to Workout</button>
   <div class="card">
     <h2>Progress Overview</h2>
     <div id="progressStats"></div>
@@ -176,7 +178,7 @@ canvas{width:100%;height:190px;border:1px solid var(--border);border-radius:3px;
 </div>
 
 <script>
-const program={"Day 1 - Upper A": [{"exercise": "Chest Press", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Single Arm Lat Pulldown", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Upper Back Row", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Cable Lateral Raise Single Arm", "minSets": 2, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Biceps 1", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Triceps 1", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}], "Day 2 - Lower A": [{"exercise": "Calf Press", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Leg Extension", "minSets": 2, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Leg Press / Hack Squat", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Back Extension", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}], "Day 3 - Upper B": [{"exercise": "Shoulder Press", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Cable Pullover", "minSets": 2, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Shrugs", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Chest Fly", "minSets": 3, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Biceps 2", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Triceps 2", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}], "Day 4 - Lower B": [{"exercise": "Calf Press", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Hip Thrust", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Abduction", "minSets": 2, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "RDL", "minSets": 2, "maxSets": 2, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Seated Leg Curl", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}]};
+const program={"Day 1 - Upper A": [{"exercise": "Chest Press", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Single Arm Lat Pulldown", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Upper Back Row", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Y-Raises", "minSets": 2, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Biceps 1", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Triceps 1", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}], "Day 2 - Lower A": [{"exercise": "Calf Press", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Leg Extension", "minSets": 2, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Leg Press / Hack Squat", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Back Extension", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}], "Day 3 - Upper B": [{"exercise": "Shoulder Press", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Cable Pullover", "minSets": 2, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Shrugs", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Chest Fly", "minSets": 3, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Biceps 2", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Triceps 2", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}], "Day 4 - Lower B": [{"exercise": "Calf Press", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "Hip Thrust", "minSets": 2, "maxSets": 3, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Abduction", "minSets": 2, "maxSets": 3, "minRep": 6, "maxRep": 10, "type": "Isolation"}, {"exercise": "RDL", "minSets": 2, "maxSets": 2, "minRep": 4, "maxRep": 8, "type": "Compound"}, {"exercise": "Seated Leg Curl", "minSets": 2, "maxSets": 2, "minRep": 6, "maxRep": 10, "type": "Isolation"}]};
 
 const dateEl=document.getElementById('date');
 const daySel=document.getElementById('day');
@@ -184,8 +186,8 @@ const STORAGE='hypertrophyLog';
 const KG_TO_LB=2.2046226218;
 let unit=localStorage.getItem('hyperLogUnit')||'kg';
 // Extra/accessory exercises logged alongside every day, tracked by time instead of reps.
-const SIDE_EXERCISES=[{exercise:"Farmer Carry", minSets:1, maxSets:1, type:"Carry"}];
-function allExercisesForDay(day){ return [...program[day], ...SIDE_EXERCISES]; }
+const SIDE_EXERCISES=[{exercise:"Farmer Carry", minSets:1, maxSets:1, type:"Carry", days:["Day 2 - Lower A","Day 4 - Lower B"]}];
+function allExercisesForDay(day){ return [...program[day], ...SIDE_EXERCISES.filter(se=>!se.days||se.days.includes(day))]; }
 const MAX_SETS=4;
 let setCounts={};
 dateEl.value=new Date().toISOString().slice(0,10);
@@ -307,7 +309,10 @@ function render(){
       <div class="small">${metaLine}</div>
       <div class="small" style="margin-top:6px">${prevText}</div>
       <div id="setsContainer_${i}"></div>
-      <button type="button" class="secondary full" id="addSetBtn_${i}" onclick="addSet(${i})">+ Add Set</button>
+      <div class="grid">
+        <button type="button" class="secondary" id="addSetBtn_${i}" onclick="addSet(${i})">+ Add Set</button>
+        <button type="button" class="secondary" id="removeSetBtn_${i}" onclick="removeSet(${i})">− Remove Set</button>
+      </div>
       <div id="msg_${i}"></div>`;
     list.appendChild(c);
 
@@ -323,6 +328,7 @@ function render(){
       attachSetListeners(i,s,e,isCarry);
     }
     updateAddSetBtn(i);
+    updateRemoveSetBtn(i);
   });
   updatePreviousSummary();
   loadExisting();
@@ -358,6 +364,11 @@ function updateAddSetBtn(i){
   if(!btn) return;
   btn.classList.toggle('hidden',(setCounts[i]||1)>=MAX_SETS);
 }
+function updateRemoveSetBtn(i){
+  const btn=document.getElementById(`removeSetBtn_${i}`);
+  if(!btn) return;
+  btn.classList.toggle('hidden',(setCounts[i]||1)<=1);
+}
 
 // Silently ensures one more set row exists, without triggering autosave —
 // used when restoring saved/previous data that already has more sets logged.
@@ -371,6 +382,7 @@ function appendSetRow(i,e,isCarry,initialWeight){
   attachSetListeners(i,newS,e,isCarry);
   setCounts[i]=newS;
   updateAddSetBtn(i);
+  updateRemoveSetBtn(i);
   return newS;
 }
 
@@ -382,6 +394,25 @@ function addSet(i){
   const isCarry=e.type==='Carry';
   const lastWeight=document.getElementById(`w_${i}_${count}`)?.value || '';
   appendSetRow(i,e,isCarry,lastWeight);
+  if(isCarry) checkCarry(i,e); else check(i,e);
+  scheduleAutoSave();
+}
+
+function removeSet(i){
+  const e=allExercisesForDay(daySel.value)[i];
+  if(!e) return;
+  const count=setCounts[i]||1;
+  if(count<=1) return;
+  const isCarry=e.type==='Carry';
+  const hasData=isCarry
+    ? !!(document.getElementById(`w_${i}_${count}`)?.value || document.getElementById(`t_${i}_${count}`)?.value)
+    : !!(document.getElementById(`w_${i}_${count}`)?.value || document.getElementById(`r_${i}_${count}`)?.value || document.getElementById(`rir_${i}_${count}`)?.value);
+  if(hasData && !confirm(`Remove Set ${count}? Any values entered for it will be lost.`)) return;
+  const row=document.getElementById(`setbox_${i}_${count}`);
+  if(row) row.remove();
+  setCounts[i]=count-1;
+  updateAddSetBtn(i);
+  updateRemoveSetBtn(i);
   if(isCarry) checkCarry(i,e); else check(i,e);
   scheduleAutoSave();
 }
@@ -923,7 +954,8 @@ function resetWorkoutTimer(){
 function migrateExerciseNames(){
   const renameMap={
     "Single Arm Seated Row":"Cable Pullover",
-    "Rear Delt Fly":"Shrugs"
+    "Rear Delt Fly":"Shrugs",
+    "Cable Lateral Raise Single Arm":"Y-Raises"
   };
   const all=getAll();
   let changed=false;
