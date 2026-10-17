@@ -47,6 +47,7 @@ button.successBtn{background:var(--olive);color:#1A1A1C}
 button.full{width:100%;margin:5px 0}
 input,select{width:100%;padding:11px;border:1px solid var(--border);border-radius:3px;margin:5px 0 8px;font-size:16px;background:var(--surface2);color:var(--text)}
 input::placeholder{color:var(--textFaint)}
+textarea{width:100%;padding:10px;border:1px solid var(--border);border-radius:3px;margin:8px 0 0;font-size:12px;font-family:ui-monospace,Menlo,monospace;background:var(--surface2);color:var(--text)}
 .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .set{border:1px solid var(--border);border-left:3px solid var(--border);border-radius:3px;padding:9px;margin:7px 0}
 .set.optional{opacity:.6}
@@ -147,6 +148,15 @@ canvas{width:100%;height:190px;border:1px solid var(--border);border-radius:3px;
 
 <section id="historyTab" class="hidden">
   <button type="button" class="secondary" onclick="showTab('workout')">← Back to Workout</button>
+  <div class="card">
+    <h3>Export for AI</h3>
+    <div class="small">Copies your whole log as text, grouped by exercise. Paste it into a Claude chat and ask for analysis.</div>
+    <div class="grid" style="margin-top:8px">
+      <button type="button" onclick="exportForAI()">Copy log</button>
+      <button type="button" id="shareLogBtn" class="secondary" onclick="shareLogForAI()">Share…</button>
+    </div>
+    <textarea id="exportText" class="hidden" readonly rows="8"></textarea>
+  </div>
   <div class="card">
     <div class="row">
       <h2>Workout History</h2>
@@ -615,6 +625,98 @@ function deleteSession(date,day){
   renderHistory(); renderProgress(); showStatus('Session deleted.','warn');
 }
 
+// ---- Export for AI -------------------------------------------------------
+// Builds a plain-text copy of the whole log, grouped by exercise (oldest -> newest)
+// so a Claude chat can read each lift's trend directly. Weights use the unit
+// currently selected in the app.
+function buildExportText(){
+  const sessions=getAll().slice().sort((a,b)=>a.date.localeCompare(b.date));
+  if(!sessions.length) return '';
+
+  const defs={};
+  [...Object.values(program).flat(),...SIDE_EXERCISES].forEach(e=>{ if(!defs[e.exercise]) defs[e.exercise]=e; });
+
+  const byEx={};
+  sessions.forEach(s=>{
+    (s.entries||[]).forEach(en=>{
+      (byEx[en.exercise]=byEx[en.exercise]||[]).push({session:s,entry:en});
+    });
+  });
+  const names=[
+    ...Object.keys(defs).filter(n=>byEx[n]),
+    ...Object.keys(byEx).filter(n=>!defs[n])
+  ];
+
+  const shortDay=d=>String(d||'').replace(/^Day \d+ - /,'');
+  const lines=[];
+  lines.push('Below is my workout log from my training app. I train with double progression:');
+  lines.push('I stay at the same weight until every set reaches the top of the rep range at about 1 RIR (reps in reserve), then I add weight.');
+  lines.push(`Weights are in ${unit}. Oldest to newest. "✓" marks a session where every set hit the top of the range at clean RIR.`);
+  lines.push('');
+  lines.push('Please tell me: which exercises are progressing, which have stalled, and what I should change next.');
+  lines.push('');
+  lines.push(`LOG: ${sessions.length} sessions, ${sessions[0].date} to ${sessions[sessions.length-1].date}`);
+
+  names.forEach(name=>{
+    const def=defs[name];
+    const isCarry=def && def.type==='Carry';
+    let header=`\n## ${name}`;
+    if(isCarry) header+=' (timed carry, seconds)';
+    else if(def) header+=` (${def.type}, target ${def.minRep}-${def.maxRep} reps)`;
+    lines.push(header);
+    byEx[name].forEach(({session,entry})=>{
+      const w=kgToDisplay(entry.weight);
+      const wText=w?`${w} ${unit}`:'no weight';
+      const sets=entry.sets||[];
+      let detail;
+      if(isCarry){
+        detail=sets.map(s=>s.time?`${s.time}s`:'-').join(', ');
+      } else {
+        detail=sets.map(s=>s.reps||'-').join(', ')+' reps';
+        const hasRir=sets.some(s=>s.rir!==''&&s.rir!==undefined&&s.rir!==null);
+        if(hasRir) detail+=' | RIR '+sets.map(s=>(s.rir!==''&&s.rir!==undefined&&s.rir!==null)?s.rir:'?').join(', ');
+      }
+      const earned=(!isCarry && def && computeEarned(sets,def.maxRep))?' ✓':'';
+      lines.push(`${session.date} [${shortDay(session.day)}] ${wText}: ${detail}${earned}`);
+    });
+  });
+
+  lines.push('\n## Sessions');
+  sessions.forEach(s=>{
+    const dur=s.duration?`, ${formatWorkoutTime(s.duration)} workout`:'';
+    const n=(s.entries||[]).length;
+    lines.push(`${s.date} - ${shortDay(s.day)} (${n} ${n===1?'exercise':'exercises'}${dur})`);
+  });
+  return lines.join('\n');
+}
+
+async function exportForAI(){
+  const text=buildExportText();
+  if(!text){ showStatus('No sessions saved yet — nothing to export.','warn'); return; }
+  const box=document.getElementById('exportText');
+  box.value=text; box.classList.remove('hidden'); box.rows=8;
+  let copied=false;
+  try{
+    if(navigator.clipboard && window.isSecureContext){
+      await navigator.clipboard.writeText(text); copied=true;
+    }
+  }catch(e){}
+  if(!copied){
+    try{ box.focus(); box.select(); box.setSelectionRange(0,text.length); copied=document.execCommand('copy'); }catch(e){}
+  }
+  showStatus(copied?'✓ Log copied — paste it into Claude.':'Select the text below and copy it manually.',copied?'success':'warn');
+}
+
+async function shareLogForAI(){
+  const text=buildExportText();
+  if(!text){ showStatus('No sessions saved yet — nothing to export.','warn'); return; }
+  if(navigator.share){
+    try{ await navigator.share({title:'YAZANLOG workout log',text}); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  exportForAI(); // sharing unavailable or failed — fall back to copy
+}
+
 function clearAll(){
   if(!getAll().length)return;
   if(confirm('Delete ALL saved workout history from this browser? This cannot be undone.')){
@@ -1008,6 +1110,8 @@ function migrateStripEmptyEntries(){
   if(changed) setAll(all);
 }
 migrateStripEmptyEntries();
+
+if(!navigator.share){ const sb=document.getElementById('shareLogBtn'); if(sb) sb.classList.add('hidden'); }
 
 render();
 updateUnitButtons();
